@@ -102,7 +102,17 @@ RUN echo "Made it here.... Step 5." >> /wgb-build.log
 # Add these volumes to speed up fai-setup & fai-mirror
 VOLUME	/var/cache/apt-cacher-ng
 
+RUN echo "Made it here.... Step 6." >> /wgb-build.log
+
+RUN fai-setup -vl
+
+RUN echo "Made it here.... Step 7." >> /wgb-build.log
+
+# The following only gets ran / (aka fixed up with sed) if there is a $REPO environment override
+#
 CMD	test -n "$REPO" && sed -i -re "s/${MAIN_REPO}/${REPO}/" /etc/apt/sources.list /etc/fai/apt/sources.list /etc/fai/nfsroot.conf ; \
 	/etc/init.d/apt-cacher-ng start && \
 	/bin/bash
+
+
 
