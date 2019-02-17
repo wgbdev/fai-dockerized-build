@@ -3,14 +3,35 @@
 
 FROM	ubuntu
 
+RUN echo "Made it here.... Step 0.01" > /wgb-build.log
+
+# ------------------------------
+# Following added by wgb....
+# ------------------------------
+
+RUN apt-get update
+RUN apt-get install --no-install-recommends -y apt-utils
+RUN apt-get install --no-install-recommends -y gnupg
+
+RUN echo "Made it here.... Step 0.02" >> /wgb-build.log
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ------------------------------
+
+RUN echo "Made it here.... Step 0.02" > /wgb-build.log
+
 # Redirection sites like http.debian.net or httpredir.debian.org don't seem to work well with apt-cacher-ng
 ENV	MAIN_REPO	us.archive.ubuntu.com
 
 # Add FAI repository and install GPG key
 ADD	keys/074BCDE4.asc /tmp/
+
 RUN	echo "deb http://fai-project.org/download jessie koeln" >> /etc/apt/sources.list && \
 	apt-key add /tmp/074BCDE4.asc && \
 	rm -f /tmp/074BCDE4.asc
+
+RUN echo "Made it here.... Step 1." >> /wgb-build.log
 
 # Install packages
 RUN	sed -ri -e 's/^deb-src/#&/' -e '/[a-z]+-security/s/archive.ubuntu.com/security.ubuntu.com/' /etc/apt/sources.list && \
@@ -38,10 +59,10 @@ RUN	sed -ri -e 's/^deb-src/#&/' -e '/[a-z]+-security/s/archive.ubuntu.com/securi
 		vim \
 		wget \
 		xorriso \
-		xz-utils \
-		gnupg \
-		 && \
+		xz-utils && \
 	apt-get clean
+
+RUN echo "Made it here.... Step 2.0" >> /wgb-build.log
 
 ADD	fai /etc/fai/
 ADD	hooks /etc/fai/nfsroot-hooks/
@@ -49,6 +70,9 @@ ADD	bin /usr/local/bin/
 ADD	patches /tmp/
 # Add FAI key downloaded from http://fai-project.org/download/074BCDE4.asc
 ADD	keys /etc/fai/apt/keys/
+
+RUN echo "Made it here.... Step 3." >> /wgb-build.log
+
 
 # Configuration
 RUN	sed -ri 's/^(# )?Port:3142/Port:9999/' /etc/apt-cacher-ng/acng.conf && \
@@ -64,12 +88,16 @@ RUN	sed -ri 's/^(# )?Port:3142/Port:9999/' /etc/apt-cacher-ng/acng.conf && \
 	chmod +x /etc/fai/nfsroot-hooks/* && \
 	chmod +x /usr/local/bin/*
 
+RUN echo "Made it here.... Step 4." >> /wgb-build.log
+
 # Apply some patches
 RUN	patch /usr/sbin/fai-cd < /tmp/fai-cd.patch && \
 	patch /usr/bin/fai-mirror < /tmp/fai-mirror.patch && \
 	patch /usr/sbin/fai-make-nfsroot < /tmp/fai-make-nfsroot.patch && \
 	rm -f /tmp/fai-cd.patch /tmp/fai-make-nfsroot.patch /tmp/fai-mirror.patch \
 		/usr/sbin/fai-make-nfsroot.orig /usr/bin/fai-mirror.orig /usr/sbin/fai-cd.orig
+
+RUN echo "Made it here.... Step 5." >> /wgb-build.log
 
 # Add these volumes to speed up fai-setup & fai-mirror
 VOLUME	/var/cache/apt-cacher-ng
