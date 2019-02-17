@@ -1,6 +1,5 @@
 echo
-echo "Starting the build..."
+echo "Starting the setup..."
 echo "--------------------------------"
-#docker run . -t wgbdev/fai:1.0.0
-docker run --name wgb-fai --privileged -it wgbdev/fai:1.0.0
+docker run --name fai-container --rm -e REPO=pa.archive.ubuntu.com -v ~/fai:/srv/fai/config --privileged -it wgbdev/fai-image
 echo
