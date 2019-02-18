@@ -15,7 +15,7 @@ Code for Docker image of FAI [Fully Automatic Installation](http://fai-project.o
 
 * Then you can use the **fai-setup** image with your FAI configuration:
 
-`docker run --name fai -v ~/fai:/srv/fai/config --privileged -it fai-setup`
+`docker run --name fai -v $(pwd)/fai:/srv/fai/config --privileged -it fai-setup`
 
 NOTE: There's an example FAI config in the faiconfig directory to create an ISO that installs Ubuntu 16.04 and Docker.
 
