@@ -1,1 +1,1 @@
-./by-wgb/build-it.sh
+./by-wgb/buiild-it.sh
