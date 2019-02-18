@@ -111,7 +111,12 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 # also... 
 #
 
-RUN fai-setup -vl
+##RUN fai-setup -vl
+
+RUN echo "fai-setup -vl" > /dofai-setup-stage2.sh
+RUN echo "rm /dofai-setup-stage2.sh" >> /dofai-setup-stage2.sh
+RUN chmod u+x /dofai-setup-stage2.sh
+
 # ----------------------------------------------------
 
 RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build.log
