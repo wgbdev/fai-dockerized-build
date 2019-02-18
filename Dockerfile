@@ -108,10 +108,8 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 # NOTE by wgb
 # ------------
 # The following needs to be debugged - gnupg is broken
-# also... because this is inside here, at the build time
-# and not at run-time with --priviledged mode, I'm not 
-# sure what it does and how it affects the installation
-# script below.
+# also... 
+#
 
 RUN fai-setup -vl
 # ----------------------------------------------------
