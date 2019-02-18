@@ -7,5 +7,5 @@ echo "--------------------------------"
 #
 # On a Mac, you can't use ~ for the come directory
 #
-docker run --name fai-container --rm -v $(pwd)/fai:/srv/fai/config --privileged -it wgbdev/fai-image
+docker run --name fai-container --rm -v $(pwd)/faiconfig:/srv/fai/config --privileged -it wgbdev/fai-image
 echo
