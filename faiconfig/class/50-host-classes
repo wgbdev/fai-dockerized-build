@@ -5,6 +5,9 @@
 # use a list of classes for our demo machine
 case $HOSTNAME in
 
+    wgb-host)
+        echo "FAIBASE DHCPC UBUNTU_16";;
+
     docker)
 	echo "FAIBASE DHCPC UBUNTU_16 DOCKER" ;;
 
@@ -14,3 +17,4 @@ esac
 
 (ifclass I386 || ifclass AMD64) && echo GRUB_PC
 exit 0
+
