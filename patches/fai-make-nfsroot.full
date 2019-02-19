@@ -447,8 +447,11 @@ upgrade_nfsroot() {
 # The following added by WGB to solve the missing gnupg
 # issue from fai-setup call
 # ---------------------------------------------
-    $ROOTCMD apt-get update
     $ROOTCMD aptitude -Rfy install gnupg
+
+    $ROOTCMD apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 2BF8D9FE074BCDE4
+
+    $ROOTCMD apt-get update
 # ---------------------------------------------
 
     # add any 3rd party repository keys that you may need installed into the NFSROOT

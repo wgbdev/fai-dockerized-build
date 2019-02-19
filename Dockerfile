@@ -73,15 +73,21 @@ ADD	keys /etc/fai/apt/keys/
 
 RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 3." >> /wgb-build.log
 
+# removed from between the two back slashes below
+# --------
+# 	sed -i 's%http://%&127.0.0.1:9999/%' /etc/fai/apt/sources.list && \
+# --------
 
 # Configuration
-RUN	sed -ri 's/^(# )?Port:3142/Port:9999/' /etc/apt-cacher-ng/acng.conf && \
+RUN \
+	sed -ri 's/^(# )?Port:3142/Port:9999/' /etc/apt-cacher-ng/acng.conf && \
 	sed -ri 's/^Remap-(gentoo|sfnet):/#&/' /etc/apt-cacher-ng/acng.conf && \
 	echo "http://us.archive.ubuntu.com/ubuntu" > /etc/apt-cacher-ng/backends_ubuntu && \
 	. /etc/lsb-release && \
 	sed -ri "s%^(FAI_DEBOOTSTRAP)=.*%\1=\"$DISTRIB_CODENAME http://$MAIN_REPO/ubuntu\"%" /etc/fai/nfsroot.conf && \
 	cp /etc/apt/sources.list /etc/fai/apt/ && \
-	sed -i 's%http://%&127.0.0.1:9999/%' /etc/fai/apt/sources.list && \
+	\
+	\
 	mkdir -p /etc/fai/faimirror/apt && \
 	cp /etc/fai/fai.conf /etc/fai/faimirror && \
 	cp /etc/fai/nfsroot.conf /etc/fai/faimirror && \
@@ -121,7 +127,10 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 
 ##RUN echo "not this... ##RUN fai-setup -vl"
 
+# Note: use -vl to make a "live" boot and "verbose" messaging
+#
 RUN echo "fai-setup -vl" > /dofai-setup-stage2.sh
+#
 RUN echo "rm /dofai-setup-stage2.sh" >> /dofai-setup-stage2.sh
 RUN chmod u+x /dofai-setup-stage2.sh
 
