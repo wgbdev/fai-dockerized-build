@@ -97,6 +97,14 @@ RUN	patch /usr/sbin/fai-cd < /tmp/fai-cd.patch && \
 	rm -f /tmp/fai-cd.patch /tmp/fai-make-nfsroot.patch /tmp/fai-mirror.patch \
 		/usr/sbin/fai-make-nfsroot.orig /usr/bin/fai-mirror.orig /usr/sbin/fai-cd.orig
 
+
+# ------------------------------------------------
+# Added by wgb to fix the missing gnupg module
+# ------------------------------------------------
+ADD patches/fai-make-nfsroot.full    /usr/sbin/fai-make-nfsroot
+# ------------------------------------------------
+
+
 RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 5." >> /wgb-build.log
 
 # Add these volumes to speed up fai-setup & fai-mirror
