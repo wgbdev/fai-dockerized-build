@@ -14,8 +14,8 @@ fi
 
 MIRROR="/tmp/mirror"
 CACHE="/var/cache/apt-cacher-ng"
-#PROXY="http://127.0.0.1:9999"
-PROXY="http:/"
+PROXY="http://127.0.0.1:9999"
+#PROXY="http:/"
 
 [ -f /etc/fai/nfsroot.conf ] && . /etc/fai/nfsroot.conf
 
