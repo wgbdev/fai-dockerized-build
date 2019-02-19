@@ -1,0 +1,634 @@
+#! /bin/bash
+
+#*********************************************************************
+#
+# fai-make-nfsroot -- create nfsroot directory and add additional packages
+#
+# This script is part of FAI (Fully Automatic Installation)
+# (c) 2000-2013 by Thomas Lange, lange@informatik.uni-koeln.de
+# Universitaet zu Koeln
+# (c) 2004      by Henning Glawe, glaweh@physik.fu-berlin.de
+# Freie Universitaet Berlin
+#
+#*********************************************************************
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# A copy of the GNU General Public License is available as
+# `/usr/share/common-licences/GPL' in the Debian GNU/Linux distribution
+# or on the World Wide Web at http://www.gnu.org/copyleft/gpl.html.  You
+# can also obtain it by writing to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
+#*********************************************************************
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+usage() {
+
+    cat <<-EOF
+	Copyright (C) 1999-2014 Thomas Lange
+
+	Usage: fai-make-nfsroot [OPTIONS]
+	Create an NFSROOT for FAI.
+	Read the man pages pages fai-make-nfsroot(8).
+EOF
+    exit 0
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+die() {
+
+    local e=$1   # first parameter is the exit code
+    shift
+
+    echo "ERROR: $@"
+    echo "Log file written to /var/log/fai/fai-make-nfsroot.log"
+    exit $e
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+check_nfsroot() {
+
+    set +e
+    # simple test, to see if important thing are available inside the nfsroot
+    if [ ! -x $NFSROOT/usr/share/initramfs-tools/scripts/live  -a ! $NFSROOT/usr/sbin/dracut ]; then
+        die 1 "Neither live-boot nor dracut was installed into the nfsroot."
+    fi
+
+    if [ -f $oldnfsroot/usr/share/initramfs-tools/scripts/live ]; then
+        echo "When using live-boot instead of dracut inside the nfsroot, please use fai-make-nfsroot -l." >&2
+    fi
+
+    echo "FAI packages inside the nfsroot:"
+    $ROOTCMD dpkg-query -W -f='${Package;-18} ${Version}\n' fai-client fai-nfsroot fai-setup-storage 2>/dev/null
+    echo "FAI related packages inside the nfsroot:"
+    $ROOTCMD dpkg-query -W -f='${Package;-18} ${Version}\n' live-boot dracut-network dracut 2>/dev/null
+
+    local files=$(ls $NFSROOT/boot/initrd* 2>/dev/null)
+    [ -z "$files" ] && die 1 "No initrd installed."
+    egrep -q "^ERROR: |^E: Sub-process |^dpkg: error processing |^dpkg: dependency problems" /var/log/fai/fai-make-nfsroot.log && bad_exit
+    return 0
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+badupdateto32() {
+
+    cat <<-EOF
+	It seems that you have updated an older FAI version without checking files in /etc/fai/
+	Please check the NEWS file for changes in variable names and if you have a linux-image package
+	defined in /etc/fai/NFSROOT.
+EOF
+    die 1 $@
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PATH=/usr/local/bin:/usr/local/sbin:/bin:/sbin:/usr/bin:/usr/sbin
+
+merror="properly"
+exitcode=0
+sshpreserve=0
+adjust=0
+generic=0
+force=0
+live=0   # default is to generate nfsroot for dracut
+
+callname=${0##*/}
+if [ $callname = make-fai-nfsroot ]; then
+    echo "make-fai-nfsroot is now called fai-make-nfsroot."
+    echo "In the future only fai-make-nfsroot will be available."
+fi
+
+# option e currently does nothing
+while getopts aghervC:B:fkKlpU opt ; do
+    case "$opt" in
+        a) adjust=1 ;;
+        g) generic=1 ;;
+        C) cfdir=$OPTARG ;;
+        B) basetgz=$OPTARG ;;
+        v) verbose=1 ; v=-v ;;
+        U) die 1 "Option -U is not supported any more." ;;
+        r) die 1 "Option -r is not supported any more." ;;
+        f) force=1 ;;
+        k) kinstall=1 ;;
+        K) kremove=1;;
+        l) live=1 ;;
+        h) usage ;;
+        e) expert=1 ;; # a dummy option, that only fai-setup uses
+        p) sshpreserve=1 ;;
+        ?) exit 5 ;; # error in option parsing
+    esac
+done
+
+[ $(id -u) != "0" ] && die 9 "Run this program as root."
+
+set -e
+shopt -s nullglob
+
+# use FAI_ETC_DIR from environment variable
+if [ -n "$FAI_ETC_DIR" -a -z "$cfdir" ]; then
+    echo "Using environment variable \$FAI_ETC_DIR."
+fi
+[ -z "$cfdir" ] && cfdir=${FAI_ETC_DIR:=/etc/fai}
+cfdir=$(readlink -f $cfdir) # canonicalize path
+[ ! -d "$cfdir" ] && die 6 "$cfdir is not a directory"
+
+[ "$verbose" ] && echo "Using configuration files from $cfdir"
+. $cfdir/fai.conf
+: ${FAI:=/var/lib/fai/config} # default value
+: ${MNTPOINT:=/media/mirror}  # default value
+
+# read config file for this tool
+[ -f "$cfdir/nfsroot.conf" ] || die 8 "Can't read $cfdir/nfsroot.conf"
+. $cfdir/nfsroot.conf
+
+# IMO this may be removed, since all information should be included into sources.list
+[ -n "$FAI_LOCAL_REPOSITORY" ] && die "The use of \$FAI_LOCAL_REPOSITORY is now deprecated. Please include this information into sources.list."
+[ -n "$packages" ] && badupdateto32 "The use of \$packages in nfsroot.conf is now deprecated. Please include this information into $cfdir/NFSROOT."
+[ -n "$NFSROOT_PACKAGES" ] && die 1 "The use of \$NFSROOT_PACKAGES in nfsroot.conf is now deprecated. Please include this information into $cfdir/NFSROOT."
+[ -n "$FAI_SOURCES_LIST" ] && die 1 "The use of \$FAI_SOURCES_LIST is deprecated. Please use sources.list now."
+
+[ -z "$NFSROOT" ] && die 1 "\$NFSROOT is not set. Please check your settings in $cfdir/nfsroot.conf."
+[ -z "$TFTPROOT" ] && badupdateto32 "\$TFTPROOT is not set. Please check your settings in $cfdir/nfsroot.conf."
+[ -n "$KERNELPACKAGE" ] && badupdateto32 "The use of \$KERNELPACKAGE is deprecated. Please use $cfdir/NFSROOT now."
+[ ! -d "$cfdir/apt" ] && die 1 "$cfdir/apt/ does not exists. Can't continue."
+[ -n "$FAI_BOOT" ] && die 1 "Variable \$FAI_BOOT is not supported any more. Will only set up TFTP environment."
+
+oldnfsroot=$NFSROOT
+
+if [ $live -eq 1 ]; then
+    # live-boot
+    deldir=$NFSROOT # save it before redefining, this will be deleted
+    NFSROOT="$NFSROOT/live/filesystem.dir"
+else
+    # dracut
+    deldir=$NFSROOT
+fi
+
+ROOTCMD="chroot $NFSROOT"
+export DEBIAN_FRONTEND=noninteractive
+
+usexz=0
+if [ -x "$(which xz)" ]; then
+    usexz=1
+fi
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+adjust_nfsroot() {
+
+    # add install server specific data (like network parameters) into the nfsroot
+    # a generic nfsroot must already be available
+    trap '' EXIT
+    add_etc_hosts_entries
+    copy_fai_files
+    exit 0
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+bad_exit() {
+
+    merror="with errors"
+    exitcode=1
+    echo "An error occured during fai-make-nfsroot."
+    echo "Please fix the error or try fai-make-nfsroot -v"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+call_verbose() {
+
+    if [ "$verbose" ]; then
+        "$@"
+        return $?
+    else
+        "$@" > /dev/null
+        return $?
+    fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+setup_ssh() {
+
+    # nothing to do if no ssh is available in nfsroot
+    [ -f $NFSROOT/usr/bin/ssh ] || return 0
+    if [ $sshpreserve = 1 ]; then
+        tar -C $NFSROOT -xf $tmptar
+        rm $tmptar
+        return 0
+    fi
+
+    mkdir -p -m 700 $NFSROOT/root/.ssh
+    if [ -n "$LOGUSER" ] ; then
+        loguserhome=$(eval "cd ~$LOGUSER 2>/dev/null && pwd;true")
+        [ -f $loguserhome/.ssh/known_hosts ] && cp $loguserhome/.ssh/known_hosts $NFSROOT/root/.ssh/known_hosts
+        [ -d $loguserhome/.ssh ] && {
+            [ -f $loguserhome/.ssh/id_dsa ] &&
+               cp -p $loguserhome/.ssh/id_dsa* $NFSROOT/root/.ssh/
+            [ -f $loguserhome/.ssh/id_rsa ] &&
+               cp -p $loguserhome/.ssh/id_rsa* $NFSROOT/root/.ssh/
+        }
+    fi
+
+    # enable root login
+    sed -i -e '/PermitRootLogin/d' $NFSROOT/etc/ssh/sshd_config
+    ainsl $NFSROOT/etc/ssh/sshd_config 'PermitRootLogin yes'
+    if [ -f "$SSH_IDENTITY" ]; then
+        install -m0644 $SSH_IDENTITY $NFSROOT/root/.ssh/authorized_keys
+        echo You can log into install clients without password using $SSH_IDENTITY
+    fi
+
+# seting StrictHostKeyChecking to no inside the nfsroot would enable
+# easy login to the install server even if the host key is not known
+
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+copy_fai_files() {
+
+    [ $generic = 1 ] && return # do nothing here if we generate a generic nfsroot
+    # set root pw inside the nfsroot
+    $ROOTCMD usermod -p "$FAI_ROOTPW" root
+    return # do not copy fai files at all
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+call_debootstrap() {
+
+    [ -z "$FAI_DEBOOTSTRAP" ] && die 4 "\$FAI_DEBOOTSTRAP not defined."
+
+    # check if NFSROOT directory is mounted with bad options
+    fs=$(df -P $NFSROOT | tail -1 | awk '{print $6}')
+    if mount | grep "on $fs " |  awk '{print $6}' | egrep -q "nosuid|nodev"; then
+        die 1 "NFSROOT directory $NFSROOT is mounted using nosuid or nodev. Aborting"
+    fi
+    local dversion=$(dpkg -l debootstrap | awk '/debootstrap/ {print $3}')
+    echo "Creating base system using debootstrap version $dversion"
+    echo "Calling debootstrap $FAI_DEBOOTSTRAP_OPTS $1 $NFSROOT $2"
+    LC_ALL=C call_verbose debootstrap $FAI_DEBOOTSTRAP_OPTS $1 $NFSROOT $2
+    if [ $? -ne 0 ]; then
+        echo "ERROR: debootstrap did not complete successfully."
+        echo "This is mostly caused by a broken mirror."
+        echo "Please check your mirror or use an official mirror."
+        [ "$verbose" ] || echo "Call fai-make-nfsroot -v for better debugging."
+        exit 10
+    fi
+
+    if [ ! -f $NFSROOT/usr/bin/apt-get ]; then
+        echo "No apt-get executable available inside the NFSROOT."
+        echo "Maybe debootstrap did not finish successfully. Aborting."
+        [ "$verbose" ] || echo "Call fai-make-nfsroot -v for better debugging."
+        exit 11
+    fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+add_etc_hosts_entries() {
+
+    # some default entries
+    ainsl -as $NFSROOT/etc/hosts "127.0.0.1 localhost"
+    ainsl     $NFSROOT/etc/hosts "# Following entries are specific to your environment"
+    ainsl $v  $NFSROOT/etc/hosts "$NFSROOT_ETC_HOSTS"
+
+    # add entries for all network devices
+    local ips=$(ip addr show up| grep -w inet | cut -d t -f 2 | cut -d ' ' -f 2 | cut -d / -f 1 | grep -v 127.0.0.1)
+
+    local line
+    for eth in $ips; do
+        line=$(getent hosts $eth || true)
+        if [ -n "$line" ] ; then
+            ainsl $v $NFSROOT/etc/hosts "$line"
+        else
+            echo "Warning: no hostname for $eth found, not adding to /etc/hosts."
+        fi
+    done
+
+    if [ -f /etc/resolv.conf ]; then
+        cp -Lp $v /etc/resolv.conf $NFSROOT/etc/resolv.conf-installserver
+        cp -Lp $v /etc/resolv.conf $NFSROOT/etc/resolv.conf # this is needed during fai-make-nfsroot
+    fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+create_base() {
+
+    [ ! -x "$(which debootstrap)" ] && die 1 "Can't find debootstrap command. Aborting."
+    call_debootstrap $FAI_DEBOOTSTRAP
+    $ROOTCMD apt-get clean
+    rm -f $NFSROOT/etc/resolv.conf $NFSROOT/etc/hostname $NFSROOT/etc/udev/rules.d/70-persistent-net.rules
+    if [ $usexz -eq 0 ]; then
+        echo "Creating base.tar.gz"
+    else
+        echo "Creating base.tar.xz"
+    fi
+    tar --one-file-system -C $NFSROOT -cf $NFSROOT/var/tmp/base.tar --exclude var/tmp/base.tar --exclude 'var/lib/apt/lists/*_*' .
+    if [ $usexz -eq 1 ]; then
+        nice xz -q $NFSROOT/var/tmp/base.tar &
+    else
+        nice gzip $NFSROOT/var/tmp/base.tar &
+    fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+extract_base() {
+
+    if [ ! -r "$basetgz" ] ; then
+      die "Specified $basetgz could not be used."
+    fi
+
+    if cd $NFSROOT ; then
+      printf "Extracting $basetgz: "
+      case $basetgz in
+          *tar.gz|*.tgz)
+              tar -C $NFSROOT -zxpf "$basetgz" || die 1 "Error while extracting ${basetgz} in ${NFSROOT}."
+              cp -p "$basetgz" $NFSROOT/var/tmp/base.tar.gz
+              ;;
+
+            *tar.xz|*.txz)
+              tar -C $NFSROOT -Jxpf "$basetgz" || die 1 "Error while extracting ${basetgz} in ${NFSROOT}."
+              cp -p "$basetgz" $NFSROOT/var/tmp/base.tar.xz
+              ;;
+          esac
+      echo done
+    fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+create_nfsroot() {
+
+    mkdir -p $NFSROOT/$FAI
+    cd $NFSROOT || die 1 "Can't cd to $NFSROOT"
+
+    if [ -n "$basetgz" ] ; then
+      extract_base
+    else
+      create_base
+    fi
+    touch .THIS_IS_THE_FAI_NFSROOT
+    # save the list of all packages in the base.tar.gz
+    $ROOTCMD dpkg --get-selections | awk '/install$/ {print $1}' > var/tmp/base-pkgs.lis
+
+    if [ -n "$FAI_DEBMIRROR" ]; then
+        [ "$verbose" ] && echo "Mounting $FAI_DEBMIRROR to $NFSROOT/$MNTPOINT."
+        mkdir -p $NFSROOT/$MNTPOINT
+        mount -o ro,noatime $FAI_DEBMIRROR $NFSROOT/$MNTPOINT || \
+                die 1 "Can't mount $FAI_DEBMIRROR to $NFSROOT/$MNTPOINT."
+    fi
+
+    # liloconfig, dump needs these files
+    echo "# UNCONFIGURED FSTAB FOR BASE SYSTEM" > etc/fstab
+
+    # Work around Ubuntu's failure in installing rsyslog with
+    # "start: Unable to connect to Upstart: Failed to connect to
+    # socket /com/ubuntu/upstart: Connection refused"
+    if $ROOTCMD which dpkg-divert >/dev/null 2>&1 && [ -x $NFSROOT/sbin/initctl ] ; then
+      LC_ALL=C $ROOTCMD dpkg-divert --quiet --add --rename /sbin/initctl
+      ln -sf /bin/true $NFSROOT/sbin/initctl
+      INITCTL_DIVERT=true
+    fi
+
+    # we need these option before installing the first package. So we
+    # can't put this into fai-nfsroot /etc/apt/apt.conf.d/90fai
+    cat >$NFSROOT/etc/apt/apt.conf.d/10fai <<EOF
+APT::Get::AllowUnauthenticated true;
+Aptitude::CmdLine::Ignore-Trust-Violations yes;
+Acquire::Languages none;
+Acquire::Check-Valid-Until "false";
+EOF
+
+    # currently we do not want to use systemd
+    mkdir $NFSROOT/etc/dracut.conf.d
+    echo "omit_dracutmodules+=systemd" > $NFSROOT/etc/dracut.conf.d/12-no-systemd.conf
+
+    # this copies sources.list into the nfsroot
+    cp -La $cfdir/apt $NFSROOT/etc
+
+    add_etc_hosts_entries
+
+    [ "$verbose" ] && echo "Upgrading $NFSROOT"
+    LC_ALL=C call_verbose upgrade_nfsroot
+
+    # overwrite default live.conf
+    [ -f $cfdir/live.conf ] || die 1 "$cfdir/live.conf not found."
+    cp -Lp $cfdir/live.conf etc/live.conf
+
+    LC_ALL=C add_packages_nfsroot
+    copy_fai_files
+
+    # set timezone in nfsroot
+    cp -H /etc/timezone  etc/timezone
+    [ ! -f etc/localtime ] && cp -H /etc/localtime etc/localtime
+    ln -sf /proc/mounts etc/mtab
+
+    [ -f etc/init/tty1.conf ] || ln -s /usr/sbin/fai etc/init.d/rcS
+    if [ -d etc/init ]; then   # if upstart is available
+        find etc/init ! -type d | egrep -v "fai|udev|hostname|mountall|mounted" | xargs -r rm
+    fi
+
+    rm -f etc/mdadm/mdadm.conf # remove file which may contain info of the install server
+    # this second rm of the same file is needed!
+    rm -f etc/udev/rules.d/70-persistent-net.rules
+    # remove Ubuntu-specific rules to auto-start volume groups, which confuses
+    # setup-storage
+    rm -f lib/udev/rules.d/85-lvm2.rules
+    # definition for loopback device
+    echo "iface lo inet loopback" > etc/network/interfaces
+
+    cat >> root/.profile <<-EOF
+	PATH=/usr/local/sbin:/usr/local/bin:/usr/lib/fai:/bin:/sbin:/usr/bin:/usr/sbin:
+	export PATH
+	. /usr/lib/fai/subroutines
+	set -a
+	. /tmp/fai/variables.log 2>/dev/null
+EOF
+
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+upgrade_nfsroot() {
+
+    mount -t proc   /proc  $NFSROOT/proc
+    mount -t sysfs  /sys   $NFSROOT/sys
+    mount -t devpts devpts $NFSROOT/dev/pts
+    /usr/lib/fai/mkramdisk $NFSROOT/var/lib/dpkg $NFSROOT/var/cache
+    mkdir $NFSROOT/etc/mdadm; touch $NFSROOT/etc/mdadm/mdadm.conf # stop mdadm from calling mkconf
+
+    # add any 3rd party repository keys that you may need installed into the NFSROOT
+    if [ -d $cfdir/apt/keys ]; then
+        local f
+        for f in `find $cfdir/apt/keys -type f -name '*.asc'`; do
+            cat $f | $ROOTCMD apt-key add -
+        done
+    fi
+    $ROOTCMD apt-get update
+    $ROOTCMD aptitude -Rfy install fai-nfsroot=4.3.3 fai-setup-storage=4.3.3 fai-client=4.3.3
+    $ROOTCMD apt-mark hold fai-nfsroot fai-setup-storage fai-client
+    $ROOTCMD apt-get -y dist-upgrade
+    fdivert /usr/sbin/update-grub
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+add_packages_nfsroot() {
+
+    local iarch=$($ROOTCMD dpkg --print-architecture|tr /a-z/ /A-Z/)
+    export FAI_ROOT=$NFSROOT
+    export classes="NFSROOT $iarch"
+
+    install_packages -l -p$cfdir > $NFSROOT/var/tmp/packages.nfsroot
+    echo "Adding additional packages to $NFSROOT:"
+    cat $NFSROOT/var/tmp/packages.nfsroot
+    call_verbose install_packages -N $v -p$cfdir
+    echo "install_packages exit code: $?"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+umount_dirs() {
+
+    cd /
+    [ -d $NFSROOT/proc/self ] && umount $NFSROOT/proc
+    [ -d $NFSROOT/sys/class ] && umount $NFSROOT/sys
+    [ -d $NFSROOT/proc/self ] && die 1 "/proc still mounted inside the nfsroot."
+    umount $NFSROOT/dev/pts 2> /dev/null || true
+
+    if mount | grep -q "on $NFSROOT/var/lib/dpkg type tmpfs" ; then
+        /usr/lib/fai/mkramdisk -u $NFSROOT/var/lib/dpkg $NFSROOT/var/cache
+    fi
+
+    if [ -n "$FAI_DEBMIRROR" ]; then
+        test -d $NFSROOT/$MNTPOINT && umount $NFSROOT/$MNTPOINT || true
+    fi
+    # show directories still mounted on nfsroot
+    mount | grep " on $NFSROOT " || true
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+setup_tftp(){
+
+    # tftp environment
+    local pxebin
+
+    # wheezy/jessie pathes
+    if [ -f $NFSROOT/usr/lib/PXELINUX/pxelinux.0 ]; then
+        pxebin=$NFSROOT/usr/lib/PXELINUX/pxelinux.0
+    else
+        pxebin=$NFSROOT/usr/lib/syslinux/pxelinux.0
+    fi
+
+    rm -f $NFSROOT/boot/*.bak
+    mkdir -p $TFTPROOT/pxelinux.cfg
+    chmod a+r $NFSROOT/boot/initrd.img-*
+    cp -pv $NFSROOT/boot/vmlinu?-* $NFSROOT/boot/initrd.img-* $TFTPROOT
+    cp -u $pxebin $TFTPROOT
+    [ -f $NFSROOT/usr/lib/syslinux/modules/bios/ldlinux.c32 ] && cp -u $NFSROOT/usr/lib/syslinux/modules/bios/ldlinux.c32 $TFTPROOT
+    echo "TFTP environment prepared. Enable DHCP and start the TFTP daemon on root $TFTPROOT."
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+fdivert() {
+
+    local item
+    for item in "$@"; do
+        LC_ALL=C $ROOTCMD dpkg-divert --quiet --add --rename $item
+    done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+run_hooks() {
+
+    local file
+    [ -z "$NFSROOT_HOOKS" ] && return 0
+    [ -d "$NFSROOT_HOOKS" ] || return 0
+
+    echo "Running hooks..."
+    for file in $(run-parts --lsbsysinit --list "$NFSROOT_HOOKS"); do
+        . $file $v
+    done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - -
+# main routine
+
+trap 'echo "Aborting";umount_dirs' EXIT
+trap "bad_exit" ERR
+
+[ $adjust = 1 ] && adjust_nfsroot
+
+# remove all kernels from nfsroot
+[ -n "$kremove" ] && {
+    echo "Removing all kernels from NFSROOT."
+    $ROOTCMD aptitude -y purge ~nlinux-image
+    exit
+}
+
+# just upgrade the nfsroot and install packages into it
+[ -n "$kinstall" ] && {
+    trap "true" EXIT
+    echo "Upgrading nfsroot and installing new packages into the nfsroot."
+    $ROOTCMD apt-get update
+    $ROOTCMD apt-get -y dist-upgrade
+    LC_ALL=C add_packages_nfsroot
+    setup_tftp
+    run_hooks
+    umount_dirs
+    trap "true" EXIT
+    echo "fai-make-nfsroot finished $merror."
+    exit $exitcode
+}
+
+# repeat message, so it will appear in the log file
+rm -f  /var/log/fai/fai-make-nfsroot.log
+[ "$verbose" ] && echo "Using configuration files from $cfdir" > /var/log/fai/fai-make-nfsroot.log
+
+{
+if [ -d $NFSROOT ] && [ "$force" -ne 1 ] ; then
+    echo "-----------------------------------------------------------------"
+    echo "Error: $NFSROOT exists already." >&2
+    echo "Neither force nor update option present, exiting." >&2
+    echo "-----------------------------------------------------------------"
+    echo "NOTE: Use -f option to force overwriting an existing nfsroot."
+    echo "      Use -k option to update/install packages defined in NFSROOT config."
+    exit 1
+fi
+
+echo "Creating FAI nfsroot in $NFSROOT"
+
+if [ $sshpreserve = 1 ]; then
+    [ "$verbose" ] && echo "Preserving root/.ssh directory from inside the nfsroot."
+    # save old .ssh directory
+    tmptar=$(mktemp) || die 12 "Cannot create tmp file"
+    # should we set the umask before? Does it influence the other parts?
+    tar -C $NFSROOT -cf $tmptar root/.ssh
+fi
+
+if [ -d $NFSROOT/proc ]; then
+    umount $NFSROOT/dev/pts 1>/dev/null 2>&1 || true
+    [ -L $NFSROOT/proc/self ] && umount $NFSROOT/proc || true
+    [ -L $NFSROOT/proc/self ] && die 1 "/proc is still mounted inside the nfsroot."
+    umount $NFSROOT/$MNTPOINT  2>/dev/null || true # it's safer to try to umount
+    # remove old nfsroot using a background process
+    mv $deldir $deldir/../.will-now-be-deleted
+    nice rm -rf $deldir/../.will-now-be-deleted &
+fi
+
+create_nfsroot
+setup_tftp
+call_verbose setup_ssh
+run_hooks
+check_nfsroot
+
+if [ $generic = 1 ]; then
+    # remove fai.conf which comes from package fai-client
+    rm -f $NFSROOT/etc/hosts $NFSROOT/etc/resolv.conf* $NFSROOT/etc/fai/fai.conf
+    ainsl -as $NFSROOT/etc/hosts "127.0.0.1 localhost"
+fi
+
+# get rid of initctl divert again
+if [ "$INITCTL_DIVERT" = true ] ; then
+  rm -f $NFSROOT/sbin/initctl
+  LC_ALL=C $ROOTCMD dpkg-divert --rename --remove /sbin/initctl
+fi
+
+umount_dirs
+
+# Wait for background jobs to finish
+BGJOBS=$(jobs -p)
+if [ -n "$BGJOBS" ]; then
+    echo "Waiting for background jobs to finish"
+    jobs
+    for job in $BGJOBS; do
+        wait $job
+    done
+fi
+
+echo "fai-make-nfsroot finished $merror."
+exit $exitcode
+} 2>&1 | tee -a /var/log/fai/fai-make-nfsroot.log
+RC=${PIPESTATUS[0]}
+umount_dirs
+trap "true" EXIT
+echo "Log file written to /var/log/fai/fai-make-nfsroot.log"
+exit ${RC}
