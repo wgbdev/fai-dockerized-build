@@ -50,11 +50,7 @@ echo "${CURRENT_BUILD}" > ${TMP_FILE_TO_USE}
 
 if [ "${PRIOR_BUILD}" != "${CURRENT_BUILD}" ] ; then
 	echo "Doing the fai-setup stage...patience please..."
-	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} 
-	
-	# End of previous line
-	# /bin/bash ./dofai-setup-stage2.sh
-	#
+	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} /bin/bash ./dofai-setup-stage2.sh
 	
 	# Disable following temporarily
 	# docker commit ${TEMP_CONTAINER_NAME} ${IMAGE_DIRECTORY}${STAGE_2_IMAGE_TO_BUILD}${IMAGE_TAG} && docker rm -v ${TEMP_CONTAINER_NAME}
