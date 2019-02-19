@@ -2,6 +2,8 @@
 
 PACKAGES aptitude
 
+apt-utils
+gnupg
 fai-nfsroot=4.3.3 fai-client=4.3.3 fai-setup-storage=4.3.3 module-init-tools ssh rdate lshw
 rsync lftp less dump e2fsprogs usbutils
 psmisc pciutils hdparm smartmontools parted mdadm lvm2
