@@ -443,6 +443,14 @@ upgrade_nfsroot() {
     /usr/lib/fai/mkramdisk $NFSROOT/var/lib/dpkg $NFSROOT/var/cache
     mkdir $NFSROOT/etc/mdadm; touch $NFSROOT/etc/mdadm/mdadm.conf # stop mdadm from calling mkconf
 
+# ---------------------------------------------
+# The following added by WGB to solve the missing gnupg
+# issue from fai-setup call
+# ---------------------------------------------
+    $ROOTCMD apt-get update
+    $ROOTCMD aptitude -Rfy install gnupg
+# ---------------------------------------------
+
     # add any 3rd party repository keys that you may need installed into the NFSROOT
     if [ -d $cfdir/apt/keys ]; then
         local f
