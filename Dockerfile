@@ -3,25 +3,31 @@
 
 FROM	ubuntu
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.01" > /wgb-build.log
-
-# ------------------------------
+#
+#==============================================================
 # Following added by wgb....
-# ------------------------------
+#==============================================================
 
 RUN apt-get update
 RUN apt-get install --no-install-recommends -y apt-utils
 RUN apt-get install --no-install-recommends -y gnupg
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.02" >> /wgb-build.log
+# ---- Not sure if this is needed, but it balks without it....
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 2BF8D9FE074BCDE4
+# ----
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# The following for debugging ONLY......
+# -----------------------------------------
+RUN apt-get install --no-install-recommends -y nano
+
 ENV WGB_DEBUG=true
 ENV WGB_VERBOSE=true
-
-# ------------------------------
-
+# -----------------------------------------
+#
+#==============================================================
+#
 RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.02" > /wgb-build.log
 
 # Redirection sites like http.debian.net or httpredir.debian.org don't seem to work well with apt-cacher-ng
