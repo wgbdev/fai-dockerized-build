@@ -1,0 +1,1 @@
+./by-wgb/build-it.sh
