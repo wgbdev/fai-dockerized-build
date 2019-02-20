@@ -125,7 +125,7 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 # also... 
 #
 
-RUN echo "not this... ##RUN fai-setup -vl"
+#RUN echo "not this... ##RUN fai-setup -vl"
 
 # Note: use -vl to make a "live" boot and "verbose" messaging
 #
@@ -136,7 +136,7 @@ RUN chmod u+x /dofai-setup-stage2.sh
 
 # ----------------------------------------------------
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build.log
+#RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build.log
 
 # ----------------------------------------------------
 # NOTE by wgb
@@ -146,8 +146,11 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build
 # ----------------------------------------------------
 
 CMD	test -n "$REPO" && sed -i -re "s/${MAIN_REPO}/${REPO}/" /etc/apt/sources.list /etc/fai/apt/sources.list /etc/fai/nfsroot.conf ; \
-	/etc/init.d/apt-cacher-ng start && \
 	/bin/bash
+
+#CMD	test -n "$REPO" && sed -i -re "s/${MAIN_REPO}/${REPO}/" /etc/apt/sources.list /etc/fai/apt/sources.list /etc/fai/nfsroot.conf ; \
+#	/etc/init.d/apt-cacher-ng start && \
+#	/bin/bash
 
 
 
