@@ -14,8 +14,8 @@ fi
 
 MIRROR="/tmp/mirror"
 CACHE="/var/cache/apt-cacher-ng"
-PROXY="http://127.0.0.1:9999"
-#PROXY="http:/"
+#PROXY="http://127.0.0.1:9999"
+PROXY="http:/"
 
 [ -f /etc/fai/nfsroot.conf ] && . /etc/fai/nfsroot.conf
 
@@ -61,6 +61,18 @@ case $(echo $classes | egrep -ow '(DEBIAN_[78]|UBUNTU_1[46])') in
 esac
 
 # Create /etc/fai/faimirror/apt/sources.list
+
+echo
+echo "======================================================"
+echo "Setting up dependecies... ${PROXY}${REPO}"
+echo "======================================================"
+echo "PROXY=[${PROXY}]"
+echo "REPO=[${REPO}]"
+echo
+echo "Sample:"
+echo "		deb $PROXY/${REPO:-ftp.us.debian.org}/debian $codename main contrib non-free"
+echo "======================================================"
+echo
 
 mkdir -p /etc/fai/faimirror/apt
 

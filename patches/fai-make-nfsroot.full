@@ -437,6 +437,8 @@ EOF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 upgrade_nfsroot() {
 
+echo "ACTOOL: start of upgrade_nfsroot"
+
     mount -t proc   /proc  $NFSROOT/proc
     mount -t sysfs  /sys   $NFSROOT/sys
     mount -t devpts devpts $NFSROOT/dev/pts
@@ -447,9 +449,12 @@ upgrade_nfsroot() {
 # The following added by WGB to solve the missing gnupg
 # issue from fai-setup call
 # ---------------------------------------------
-    $ROOTCMD aptitude -Rfy install gnupg
 
+echo "ACTOOL: Aboout to => $ROOTCMD aptitude -Rfy install gnupg"
+    $ROOTCMD aptitude -Rfy install gnupg
+echo "ACTOOL: Aboout to => $ROOTCMD apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 2BF8D9FE074BCDE4"
     $ROOTCMD apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 2BF8D9FE074BCDE4
+echo "ACTOOL: Aboout to => $ROOTCMD apt-get update"
 
     $ROOTCMD apt-get update
 # ---------------------------------------------
@@ -458,14 +463,21 @@ upgrade_nfsroot() {
     if [ -d $cfdir/apt/keys ]; then
         local f
         for f in `find $cfdir/apt/keys -type f -name '*.asc'`; do
+echo "ACTOOL: Aboout to => $ROOTCMD apt-key add - [$f]"
             cat $f | $ROOTCMD apt-key add -
         done
     fi
+echo "ACTOOL: Aboout to => $ROOTCMD apt-get update"
     $ROOTCMD apt-get update
+echo "ACTOOL: Aboout to => $ROOTCMD aptitude -Rfy install fai-nfsroot=4.3.3 fai-setup-storage=4.3.3 fai-client=4.3.3"
     $ROOTCMD aptitude -Rfy install fai-nfsroot=4.3.3 fai-setup-storage=4.3.3 fai-client=4.3.3
+echo "ACTOOL: Aboout to => $ROOTCMD apt-mark hold fai-nfsroot fai-setu"
     $ROOTCMD apt-mark hold fai-nfsroot fai-setup-storage fai-client
+echo "ACTOOL: Aboout to => $ROOTCMD apt-get -y dist-upgrade"
     $ROOTCMD apt-get -y dist-upgrade
+echo "ACTOOL: Aboout to => $ROOTCMD /usr/sbin/update-grub"
     fdivert /usr/sbin/update-grub
+echo "ACTOOL: end of upgrade_nfsroot"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 add_packages_nfsroot() {

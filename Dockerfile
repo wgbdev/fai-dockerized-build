@@ -87,7 +87,6 @@ RUN \
 	sed -ri "s%^(FAI_DEBOOTSTRAP)=.*%\1=\"$DISTRIB_CODENAME http://$MAIN_REPO/ubuntu\"%" /etc/fai/nfsroot.conf && \
 	cp /etc/apt/sources.list /etc/fai/apt/ && \
 	\
- 	sed -i 's%http://%&127.0.0.1:9999/%' /etc/fai/apt/sources.list && \
 	\
 	mkdir -p /etc/fai/faimirror/apt && \
 	cp /etc/fai/fai.conf /etc/fai/faimirror && \
@@ -126,7 +125,7 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 # also... 
 #
 
-##RUN echo "not this... ##RUN fai-setup -vl"
+RUN echo "not this... ##RUN fai-setup -vl"
 
 # Note: use -vl to make a "live" boot and "verbose" messaging
 #
