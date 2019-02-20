@@ -49,7 +49,7 @@ if [ "${PRIOR_BUILD}" != "${CURRENT_BUILD}" ] ; then
 	echo "Doing the fai-setup stage...patience please..."
 	echo
 
-	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} /bin/bash ./dofai-setup-stage2.sh
+	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} /bin/bash ./what-is-next.sh
 
 	echo "Committing...."
 	# Disable following temporarily

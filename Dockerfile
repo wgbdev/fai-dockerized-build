@@ -17,6 +17,9 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.02" >> /wgb-bui
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV WGB_DEBUG=true
+ENV WGB_VERBOSE=true
+
 # ------------------------------
 
 RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.02" > /wgb-build.log
@@ -129,12 +132,71 @@ RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build
 
 # Note: use -vl to make a "live" boot and "verbose" messaging
 #
-RUN echo "fai-setup -vl" > /dofai-setup-stage2.sh
-#
-RUN echo "rm /dofai-setup-stage2.sh" >> /dofai-setup-stage2.sh
-RUN chmod u+x /dofai-setup-stage2.sh
+RUN \
+	echo "echo" \
+		> /what-is-next.sh && \
+		\
+		\
+	echo "echo Running fai-setup.sh ... this will take awhile...." \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "echo " \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "sleep 2" \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "fai-setup -vl" \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "echo " \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "cp /what-is-after.sh /what-is-next.sh" \
+		>> /what-is-next.sh && \
+		\
+		\
+	echo "rm -rf /what-is-after.sh" \
+		>> /what-is-next.sh && \
+		\
+		\
+	chmod u+x /what-is-next.sh && \
+		\
+		\
+		\
+	echo "echo " \
+		> /what-is-after.sh && \
+	echo "echo \"Here are my instructions...\" " \
+		> /what-is-after.sh && \
+	echo "echo " \
+		> /what-is-after.sh && \
+		\
+		\
+	chmod u+x /what-is-after.sh
 
 # ----------------------------------------------------
+
+
+##	echo "echo" > /what-is-next.sh.sh && \
+##	echo "echo Running fai-setup.sh ... this will take awhile...." >> /what-is-next.sh.sh && \
+##	echo "echo " >> /what-is-next.sh.sh && \
+##	\
+##	echo "sleep 1" >> /what-is-next.sh.sh && \
+##	echo "XXXfai-setup -vl" > /what-is-next.sh.sh && \
+##
+## 	echo "rm /what-is-next.sh.sh" >> /what-is-next.sh.sh && \
+
+
+
+
+
+
+
 
 #RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build.log
 
@@ -146,7 +208,9 @@ RUN chmod u+x /dofai-setup-stage2.sh
 # ----------------------------------------------------
 
 CMD	test -n "$REPO" && sed -i -re "s/${MAIN_REPO}/${REPO}/" /etc/apt/sources.list /etc/fai/apt/sources.list /etc/fai/nfsroot.conf ; \
-	/bin/bash
+	/bin/bash ./what-is-next.sh.sh
+
+#	/bin/bash ./whatsnext.sh
 
 #CMD	test -n "$REPO" && sed -i -re "s/${MAIN_REPO}/${REPO}/" /etc/apt/sources.list /etc/fai/apt/sources.list /etc/fai/nfsroot.conf ; \
 #	/etc/init.d/apt-cacher-ng start && \
