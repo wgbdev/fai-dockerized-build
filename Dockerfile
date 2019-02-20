@@ -18,17 +18,16 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 2BF8D9FE074BCDE4
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# The following for debugging ONLY......
-# -----------------------------------------
+# ---- The following for debugging ONLY......
 RUN apt-get install --no-install-recommends -y nano
 
 ENV WGB_DEBUG=true
 ENV WGB_VERBOSE=true
-# -----------------------------------------
+# ----
+
 #
 #==============================================================
 #
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 0.02" > /wgb-build.log
 
 # Redirection sites like http.debian.net or httpredir.debian.org don't seem to work well with apt-cacher-ng
 ENV	MAIN_REPO	us.archive.ubuntu.com
@@ -39,8 +38,6 @@ ADD	keys/074BCDE4.asc /tmp/
 RUN	echo "deb http://fai-project.org/download jessie koeln" >> /etc/apt/sources.list && \
 	apt-key add /tmp/074BCDE4.asc && \
 	rm -f /tmp/074BCDE4.asc
-
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 1." >> /wgb-build.log
 
 # Install packages
 RUN	sed -ri -e 's/^deb-src/#&/' -e '/[a-z]+-security/s/archive.ubuntu.com/security.ubuntu.com/' /etc/apt/sources.list && \
@@ -71,16 +68,12 @@ RUN	sed -ri -e 's/^deb-src/#&/' -e '/[a-z]+-security/s/archive.ubuntu.com/securi
 		xz-utils && \
 	apt-get clean
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 2.0" >> /wgb-build.log
-
 ADD	fai /etc/fai/
 ADD	hooks /etc/fai/nfsroot-hooks/
 ADD	bin /usr/local/bin/
 ADD	patches /tmp/
 # Add FAI key downloaded from http://fai-project.org/download/074BCDE4.asc
 ADD	keys /etc/fai/apt/keys/
-
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 3." >> /wgb-build.log
 
 # removed from between the two back slashes below
 # --------
@@ -103,8 +96,6 @@ RUN \
 	chmod +x /etc/fai/nfsroot-hooks/* && \
 	chmod +x /usr/local/bin/*
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 4." >> /wgb-build.log
-
 # Apply some patches
 RUN	patch /usr/sbin/fai-cd < /tmp/fai-cd.patch && \
 	patch /usr/bin/fai-mirror < /tmp/fai-mirror.patch && \
@@ -120,12 +111,8 @@ ADD patches/fai-make-nfsroot.full    /usr/sbin/fai-make-nfsroot
 # ------------------------------------------------
 
 
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 5." >> /wgb-build.log
-
 # Add these volumes to speed up fai-setup & fai-mirror
 VOLUME	/var/cache/apt-cacher-ng
-
-RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 6." >> /wgb-build.log
 
 # ----------------------------------------------------
 # NOTE by wgb
@@ -187,24 +174,6 @@ RUN \
 
 # ----------------------------------------------------
 
-
-##	echo "echo" > /what-is-next.sh.sh && \
-##	echo "echo Running fai-setup.sh ... this will take awhile...." >> /what-is-next.sh.sh && \
-##	echo "echo " >> /what-is-next.sh.sh && \
-##	\
-##	echo "sleep 1" >> /what-is-next.sh.sh && \
-##	echo "XXXfai-setup -vl" > /what-is-next.sh.sh && \
-##
-## 	echo "rm /what-is-next.sh.sh" >> /what-is-next.sh.sh && \
-
-
-
-
-
-
-
-
-#RUN echo "DEBUG NOTE by WGB, ACTOOL: Made it here........ Step 7." >> /wgb-build.log
 
 # ----------------------------------------------------
 # NOTE by wgb
