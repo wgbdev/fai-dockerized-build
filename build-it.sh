@@ -1,1 +1,0 @@
-./by-wgb/buiild-it.sh
