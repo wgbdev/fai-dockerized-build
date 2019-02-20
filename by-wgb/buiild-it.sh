@@ -5,8 +5,12 @@ echo "--------------------------------"
 TMP_FILE_TO_USE="/tmp/PRIOR_FAI_BUILD.TMP-delete-me-at-will"
 
 IMAGE_DIRECTORY="wgbdev/"
+
 STAGE_1_IMAGE_TO_BUILD="fai-image-stage1"
+STAGE_1_PRIOR_IMAGE_TO_BUILD="fai-image-stage1-prior"
+
 STAGE_2_IMAGE_TO_BUILD="fai-image-stage2"
+
 IMAGE_TAG=":latest"
 TEMP_CONTAINER_NAME="tmp-fai-container"
 
@@ -21,41 +25,42 @@ TEMP_CONTAINER_NAME="tmp-fai-container"
 # This will expedite the whole fai-setup from being run twice.
 #
 #
-PRIOR_BUILD=$( docker images -q ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} )
 
-#echo "IN DOCKER ===> [${PRIOR_BUILD}]"
+echo
+echo "Building...."
+echo
 
-# Accomodate for an empty images directory but a file on disk
-# that says we had a prior image
+# Test to see if there are any prior builds
 
-if [ "${PRIOR_BUILD}" != "" ] ; then
-	echo "We have an image in Docker."
-	echo "Lets see if it matches what we have recorded."
-	PRIOR_BUILD=$( cat ${TMP_FILE_TO_USE} )
 
-#echo "ON DISK ===> [${PRIOR_BUILD}]"
-
-else
-	echo "No prior image in Docker images."
-fi
-
-echo "Prior Build [ ${PRIOR_BUILD} ]"
+PRIOR_BUILD=$( docker images -q ${IMAGE_DIRECTORY}${STAGE_1_PRIOR_IMAGE_TO_BUILD}${IMAGE_TAG} )
 
 docker build . -t ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG}
 
 CURRENT_BUILD=$( docker images -q ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} ) 
 
-echo "Current Build [ ${CURRENT_BUILD} ]"
-echo "${CURRENT_BUILD}" > ${TMP_FILE_TO_USE}
+echo
+echo "Current Build: ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} = [${CURRENT_BUILD}]"
+echo "Prior Build: ${IMAGE_DIRECTORY}${STAGE_1_PRIOR_IMAGE_TO_BUILD}${IMAGE_TAG} = [${PRIOR_BUILD}]"
+echo
 
 if [ "${PRIOR_BUILD}" != "${CURRENT_BUILD}" ] ; then
+
 	echo "Doing the fai-setup stage...patience please..."
-	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} /bin/bash ./dofai-setup-stage2.sh
-	
+	echo
+
+	docker run --name ${TEMP_CONTAINER_NAME} -v $(pwd)/faiconfig:/srv/fai/config --privileged -it ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} /bin/bash exit
+
+	#./dofai-setup-stage2.sh
+	echo "Committing...."
 	# Disable following temporarily
-	# docker commit ${TEMP_CONTAINER_NAME} ${IMAGE_DIRECTORY}${STAGE_2_IMAGE_TO_BUILD}${IMAGE_TAG} && docker rm -v ${TEMP_CONTAINER_NAME}
+	docker commit ${TEMP_CONTAINER_NAME} ${IMAGE_DIRECTORY}${STAGE_2_IMAGE_TO_BUILD}${IMAGE_TAG} && docker rm -v ${TEMP_CONTAINER_NAME}
+	echo "Committed."
+	docker image tag ${IMAGE_DIRECTORY}${STAGE_1_IMAGE_TO_BUILD}${IMAGE_TAG} ${IMAGE_DIRECTORY}${STAGE_1_PRIOR_IMAGE_TO_BUILD}${IMAGE_TAG}
+	echo
 else
-	echo "Skipping the LONG fai-setup step...."
+	echo "Nothing changed..., skipping the LONG fai-setup step...."
 fi
 
 echo
+exit 0
